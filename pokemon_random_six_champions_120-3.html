@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ポケちゃ ランダム6体選出</title>
+<style>
+:root{color-scheme:dark;--bg:#10131a;--panel:#1b2230;--accent:#ffd34d;--text:#f4f6fb;--muted:#aeb8ca}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at top,#26354a,#10131a 55%);color:var(--text);font-family:system-ui,-apple-system,sans-serif;min-height:100vh;padding:22px 14px}
+main{max-width:720px;margin:auto}header{text-align:center;margin:8px 0 22px}h1{font-size:clamp(24px,6vw,36px);margin:0 0 8px}p{color:var(--muted);margin:0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.slot{min-height:155px;background:linear-gradient(145deg,#242f42,#171d29);border:1px solid #3b4960;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;box-shadow:0 8px 20px #0003}
+.num{font-size:12px;color:var(--muted);margin-bottom:5px}
+.sprite{width:96px;height:96px;object-fit:contain;image-rendering:pixelated;margin:0 auto 2px;filter:drop-shadow(0 4px 3px #0005)}
+.name{font-weight:800;font-size:19px;text-align:center;overflow-wrap:anywhere}
+.slot.spinning{border-color:var(--accent);box-shadow:0 0 18px #ffd34d35}
+.actions{display:flex;gap:10px;margin:18px 0;flex-wrap:wrap}
+button{font:inherit;font-weight:750;border:0;border-radius:12px;padding:14px 16px;cursor:pointer}
+#draw{background:var(--accent);color:#242016;flex:1;min-width:180px}#draw:disabled{opacity:.55}.secondary{background:#303b4e;color:var(--text)}
+details{background:#171d29;border:1px solid #354156;border-radius:14px;padding:14px;margin-top:18px}summary{font-weight:700;cursor:pointer}
+textarea{display:block;width:100%;min-height:190px;margin-top:12px;border-radius:10px;padding:12px;background:#0e1219;color:var(--text);border:1px solid #45536a;font:14px/1.6 monospace}
+.small{font-size:12px;color:var(--muted);line-height:1.6;margin-top:10px}#status{text-align:center;min-height:24px;color:var(--accent);font-weight:650}
+@media(min-width:560px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.slot{min-height:175px}}
+</style>
+</head>
+<body><main>
+<header><h1>ポケちゃ ランダム6体選出</h1><p>運命の6体を決めよう。</p></header>
+<div class="grid" id="grid" aria-live="polite"></div>
+<div class="actions"><button id="draw">🎲 ランダム選出！</button><button class="secondary" id="reset">リセット</button></div>
+<div id="status">準備完了</div>
+<details><summary>ポケモン一覧を編集する</summary>
+<p class="small">1行に1体ずつ「日本語名|全国図鑑番号」で入力してください。例：ピカチュウ|25。画像は全国図鑑番号から表示します。番号が不明なら、名前だけでも抽選できますが画像は出ません。</p>
+<textarea id="roster" spellcheck="false"></textarea>
+<div class="actions"><button class="secondary" id="save">一覧を保存</button><button class="secondary" id="defaults">初期一覧に戻す</button></div>
+<p class="small">画像は外部のPokeAPIスプライト配布元から読み込みます。画像表示にはインターネット接続が必要です。初期一覧は120体です。現環境の使用率上位や採用候補を中心にしています。メガシンカ・フォーム違いは画像が通常姿になる場合があります。</p>
+</details>
+</main>
+<script>
+const starter = `ピカチュウ|25
+リザードン|6
+フシギバナ|3
+カメックス|9
+ゲンガー|94
+カイリュー|149
+ルカリオ|448
+ガブリアス|445
+サーナイト|282
+ミミッキュ|778
+ドラパルト|887
+ニンフィア|700
+バンギラス|248
+メタグロス|376
+エルレイド|475
+マリルリ|184
+ウインディ|59
+ギャラドス|130
+ハッサム|212
+ロトム|479
+オオニューラ|903
+ドドゲザン|983
+ゴリランダー|812
+ガオガエン|727
+イエッサン|876
+エルフーン|547
+イダイトウ|902
+ブリジュラス|1018
+ムクホーク|398
+キリンリキ|203
+サーフゴー|1000
+ミロカロス|350
+ボーマンダ|373
+ヤバソチャ|1013
+グソクムシャ|768
+フラエッテ（えいえんのはな）|670
+グレンアルマ|936
+ドリュウズ|530
+アシレーヌ|730
+ユキメノコ|478
+ウルガモス|637
+キョジオーン|934
+ジャラランガ|784
+コータス|324
+オーロンゲ|861
+ラグラージ|260
+マフォクシー|655
+ニョロトノ|186
+ウインディ（ヒスイのすがた）|59
+プテラ|142
+バクーダ|323
+ヤミラミ|302
+ジジーロン|780
+アブソル|359
+コノヨザル|979
+バシャーモ|257
+ライチュウ|26
+バクフーン|157
+マスカーニャ|908
+ウェーニバル|914
+ラウドボーン|911
+パーモット|923
+キラフロル|970
+モロバレル|591
+ナットレイ|598
+ドヒドイデ|748
+カバルドン|450
+マンムー|473
+ユキノオー|460
+キュウコン（アローラのすがた）|38
+ニョロボン|62
+カビゴン|143
+ポリゴン2|233
+ポリゴンZ|474
+エアームド|227
+クロバット|169
+ドータクン|437
+ランクルス|579
+デンリュウ|181
+エレキブル|466
+ドサイドン|464
+トリトドン|423
+アーマーガア|823
+セグレイブ|998
+サザンドラ|635
+ヌメルゴン（ヒスイのすがた）|706
+オンバーン|715
+オノノクス|612
+ジャローダ|497
+エンペルト|395
+ドクロッグ|454
+ローブシン|534
+ズルズキン|560
+ドレディア|549
+シャンデラ|609
+ブルンゲル|593
+デスカーン|563
+バルジーナ|630
+ワルビアル|553
+バクスカリバー|998
+ブラッキー|197
+エースバーン|815
+ゲッコウガ|658
+ギルガルド|681
+ピクシー|36
+ヒスイダイケンキ|503
+スターミー|121
+グライオン|472
+ヘイラッシャ|977
+ロトム（ヒート）|479
+ロトム（ウォッシュ）|479
+メガリザードンY|6
+メガメタグロス|376
+メガガブリアス|445
+メガボーマンダ|373
+メガルカリオ|448
+カイリキー|68
+フーディン|65
+ジュペッタ|354
+チャーレム|308`;
+const $=s=>document.querySelector(s);let roster=[],busy=false;const grid=$("#grid");
+function parseRoster(text){return text.split(/\n/).map(line=>{const parts=line.trim().split("|");return {name:(parts[0]||"").trim(),id:Number((parts[1]||"").trim())||0}}).filter(p=>p.name)}
+function loadRoster(){let saved="";try{saved=localStorage.getItem("pokemon-roster-images-120")||""}catch(e){}roster=parseRoster(saved||starter);$("#roster").value=roster.map(p=>p.id?`${p.name}|${p.id}`:p.name).join("\n")}
+function spriteUrl(id){return id>0&&id<=2000?`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`:""}
+function makeCard(i,p){const card=document.createElement("div");card.className="slot";card.id="slot"+i;const num=document.createElement("div");num.className="num";num.textContent="POKÉMON "+(i+1);const img=document.createElement("img");img.className="sprite";img.alt="";img.style.visibility="hidden";const name=document.createElement("div");name.className="name";name.textContent=p?p.name:"？？？";if(p&&p.id){img.src=spriteUrl(p.id);img.style.visibility="visible";img.onerror=()=>{img.style.visibility="hidden"}}card.append(num,img,name);return card}
+function render(){grid.innerHTML="";for(let i=0;i<6;i++)grid.append(makeCard(i,null))}
+function showPokemon(i,p){const card=$("#slot"+i),img=card.querySelector(".sprite"),name=card.querySelector(".name");name.textContent=p.name;img.removeAttribute("src");img.style.visibility="hidden";if(p.id){img.src=spriteUrl(p.id);img.style.visibility="visible";img.onerror=()=>{img.style.visibility="hidden"}}}
+function shufflePick(){const a=[...roster];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a.slice(0,6)}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function draw(){if(busy)return;if(new Set(roster.map(p=>p.name)).size<6){$("#status").textContent="重複を除いて6体以上登録してください。";return}busy=true;$("#draw").disabled=true;$("#status").textContent="選出中…";const winners=shufflePick();for(let i=0;i<6;i++){const card=$("#slot"+i);card.classList.add("spinning");const duration=650+i*310,start=Date.now();while(Date.now()-start<duration){showPokemon(i,roster[Math.floor(Math.random()*roster.length)]);await sleep(75)}showPokemon(i,winners[i]);card.classList.remove("spinning");await sleep(180)}$("#status").textContent="選出完了！";busy=false;$("#draw").disabled=false}
+$("#draw").addEventListener("click",draw);$("#reset").addEventListener("click",()=>{if(busy)return;render();$("#status").textContent="準備完了"});
+$("#save").addEventListener("click",()=>{const next=parseRoster($("#roster").value);const seen=new Set();const unique=next.filter(p=>{if(seen.has(p.name))return false;seen.add(p.name);return true});if(unique.length<6){$("#status").textContent="重複を除いて6体以上必要です。";return}roster=unique;$("#roster").value=roster.map(p=>p.id?`${p.name}|${p.id}`:p.name).join("\n");try{localStorage.setItem("pokemon-roster-images-120",$("#roster").value)}catch(e){}$("#status").textContent=`${roster.length}体の一覧を保存しました。`});
+$("#defaults").addEventListener("click",()=>{$("#roster").value=starter;});
+loadRoster();render();
+</script></body></html>
